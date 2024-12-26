@@ -336,7 +336,6 @@ def click_element(page, element):
             if new_elements:
                 print("\nNewly added elements after click:")
                 for i, el in enumerate(new_elements):
-                    print(f"\n[{i}] New Element:")
                     if el['text']:
                         print(f"    Text: {el['text']}")
                     if el['role']:
@@ -754,7 +753,6 @@ def click_and_type_dropdown(page, element):
                 if new_elements:
                     print("\nNewly added elements after typing:")
                     for i, el in enumerate(new_elements):
-                        print(f"\n[{i}] New Element:")
                         if el['text']:
                             print(f"    Text: {el['text']}")
                         if el['role']:
@@ -800,7 +798,7 @@ def click_and_type_dropdown(page, element):
                         try:
                             if selected_element.get('text'):
                                 page.get_by_text(
-                                    selected_element['text'], exact=True).click()
+                                    selected_element['text'], exact=True).click(timeout=3000)
                                 print(
                                     f"Clicked option: {truncate(selected_element['text'])}")
 
@@ -820,6 +818,9 @@ def click_and_type_dropdown(page, element):
                                     if attempt >= len(models):  # We're using GPT-4o
                                         print(
                                             f"\nRetyping last search term: {search_term}")
+                                        # Added clear input before retyping
+                                        clear_input_field(page)
+                                        time.sleep(0.5)  # Wait after clearing
                                         page.keyboard.type(search_term)
                                         # Wait for dropdown to update
                                         time.sleep(0.5)
@@ -840,6 +841,9 @@ def click_and_type_dropdown(page, element):
                             if attempt >= len(models):  # We're using GPT-4o
                                 print(
                                     f"\nRetyping last search term: {search_term}")
+                                # Added clear input before retyping
+                                clear_input_field(page)
+                                time.sleep(0.5)  # Wait after clearing
                                 page.keyboard.type(search_term)
                                 time.sleep(0.5)  # Wait for dropdown to update
                                 continue
