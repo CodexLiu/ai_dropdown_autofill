@@ -1,0 +1,52 @@
+Cody Liu - Asian 
+(707) 364-7291 | cody.liu2003@gmail.com
+607 searles way, Petaluma, CA 94954
+EXPERIENCE
+Research Associate, Ractigen Therapeutics
+June 2024 - Present
+
+Developed a transformer model to predict optimal modifications to saRNA drug test articles for maximizing activity increases, enabling computational screening that reduced research costs and facilitated novel discoveries
+Streamlined high-throughput screening (HTS) data processing for siRNA drugs, designing a computational screening pipeline combining molecular docking and deep learning. Enhanced drug advancement rate from secondary screening to hit validation by over 10%
+Deployed and managed AWS instances to harness cloud computing resources, optimizing scalability and processing capacity for high-throughput analyses. Demonstrated expertise in EC2, S3, and IAM for secure data storage, computation, and resource allocation.
+Resolved persistent errors in high-throughput screening (HTS) machines by developing a custom error-handling application using OpenCV. Designed as a macro solution for light cyclers, the application automated error detection and recovery, significantly increasing research throughput and ensuring seamless operation across the HTS group
+
+Computational Biology Intern, Digestiva
+February 2023 - Present
+
+Developed a cross-attention peptide classification model utilizing ESM2-generated features to classify peptides from the Peptipedia dataset, enabling efficient screening of protease activity. Accelerated discovery of new applications by streamlining peptide analysis for expanded use cases
+Collaborated closely with wet lab researchers by providing computational predictions that prioritized peptide candidates, both reducing screening time and research costs.
+
+Undergraduate Researcher, UC Davis Genome Center - Siegel Lab
+January 2022 - May 2024
+
+BglB Mutagenesis Research (E.Coli):
+
+Conducted transformations, protein production, and purification.
+Performed enzyme characterization assays, SDS-PAGE.
+
+
+Developed Novel Enzyme for Smoke Taint Quantification:
+
+Engineered and characterized enzyme for quantifying smoke taint in wine by releasing phenols, enhancing detection via GCMS.
+Managed large-scale bacterial cell cultures and optimized media conditions.
+
+
+Enzyme Design for Polyurethane Degradation:
+
+Engineered enzyme variants through mutagenesis, focusing on thermostability improvement while maintaining catalytic performance.
+
+
+
+Emergency Medical Technician, Falcon Ambulance
+May 2022 - September 2023
+
+Delivered emergency medical services to patients in high-pressure situations to provide life-saving interventions. Transported patients to hospitals.
+
+EDUCATION
+Expected graduation June 2025
+Bachelor of Science Biochemistry and Molecular Biology
+Bachelor of Science Applied Statistics
+University of California, Davis
+
+Does not require visa sponsorship.
+He/Him
