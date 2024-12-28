@@ -245,18 +245,32 @@ def analyze_form_fields(page):
             return (closeHorizontally && closeVertically) || closeAncestor;
         }
 
-        // First get all potential form elements
-        const elements = Array.from(document.querySelectorAll('*'))
+        // First find all select fields (both native and custom)
+        const selectElements = Array.from(document.querySelectorAll('select, [role="listbox"], [role="combobox"], [class*="select"], [class*="dropdown"]'))
+            .filter(el => {
+                const style = window.getComputedStyle(el);
+                // Be more lenient with visibility checks for select elements
+                return style.display !== 'none' && 
+                       style.visibility !== 'hidden' &&
+                       (el.tagName.toLowerCase() === 'select' || // Always include native select
+                        (style.opacity !== '0' && el.offsetParent !== null)); // Check others
+            });
+
+        // Then get all other form elements
+        const otherElements = Array.from(document.querySelectorAll('*'))
             .filter(el => {
                 const style = window.getComputedStyle(el);
                 const tag = el.tagName.toLowerCase();
                 
+                // Skip if it's already in selectElements
+                if (selectElements.includes(el)) return false;
+                
                 // Only keep form-related elements
-                const allowedTags = ['input', 'button', 'textarea', 'fieldset', 'select'];
+                const allowedTags = ['input', 'button', 'textarea', 'fieldset'];
                 const isFormElement = allowedTags.includes(tag);
                 
                 // Also keep elements with form-related roles
-                const formRoles = ['button', 'checkbox', 'combobox', 'listbox', 'menuitem', 
+                const formRoles = ['button', 'checkbox', 'menuitem', 
                                  'menuitemcheckbox', 'menuitemradio', 'option', 'radio', 
                                  'searchbox', 'switch', 'tab', 'textbox'];
                 const hasFormRole = formRoles.includes(el.getAttribute('role'));
@@ -267,6 +281,9 @@ def analyze_form_fields(page):
                        style.opacity !== '0' &&
                        el.offsetParent !== null;
             });
+
+        // Combine both sets of elements
+        const elements = [...selectElements, ...otherElements];
 
         // Group related elements
         const groups = [];
@@ -293,12 +310,16 @@ def analyze_form_fields(page):
 
         // Map groups to field details
         return groups.map(group => {
-            // Find the main input element in the group
+            // For select groups, prioritize the select element as main
             const mainElement = group.find(el => 
-                el.tagName.toLowerCase() === 'input' || 
+                el.tagName.toLowerCase() === 'select' ||
+                el.getAttribute('role') === 'listbox' ||
                 el.getAttribute('role') === 'combobox' ||
+                (el.className && (el.className.includes('select') || el.className.includes('dropdown')))
+            ) || group.find(el => 
+                el.tagName.toLowerCase() === 'input' || 
                 el.getAttribute('role') === 'textbox'
-            ) || group[0];  // Fallback to first element if no input found
+            ) || group[0];
             
             const details = getFieldDetails(mainElement);
             
@@ -332,9 +353,13 @@ def analyze_form_fields(page):
                 'attach' in (field['label'] or '').lower()):
             continue
 
-        # Check if the field has any related button elements
+        # Always include select fields and elements with listbox/combobox roles
+        is_select = (field['type'] == 'select' or
+                     field['attributes']['role'] in ['listbox', 'combobox'])
+
+        # For non-select fields, check if they have related button elements
         has_button = False
-        if field.get('relatedElements'):
+        if not is_select and field.get('relatedElements'):
             for rel in field['relatedElements']:
                 if (rel['type'] == 'button' or
                     rel['role'] == 'button' or
@@ -343,8 +368,8 @@ def analyze_form_fields(page):
                     has_button = True
                     break
 
-        # Only display and store elements that have related buttons
-        if has_button:
+        # Display and store elements that are either select fields or have related buttons
+        if is_select or has_button:
             print(f"\n[{current_index}] Main Element:")
             print(f"    Type: {field['type']}")
             print(f"    Label: {field['label']}")
@@ -1030,6 +1055,28 @@ def compare_aria(before, after):
             print(change)
 
 
+def process_all_fields(page, clickable_elements):
+    """Process all fields in sequence automatically"""
+    print("\nProcessing all fields...")
+
+    for index, element in enumerate(clickable_elements):
+        print(f"\nProcessing field {index}: {element['label']}")
+
+        # Skip if field already has content
+        if verify_field_content(page, element):
+            print("Field already has content, skipping...")
+            continue
+
+        # Process the field
+        new_elements = visualize_element_changes(page, element)
+        if new_elements:
+            clickable_elements = new_elements
+
+        time.sleep(0.5)  # Small delay between fields
+
+    return clickable_elements
+
+
 def main():
     try:
         # Initialize browser and get pages
@@ -1042,13 +1089,18 @@ def main():
         while True:
             try:
                 choice = input(
-                    "\nEnter element number to visualize, 'r' to refresh list, or 'q' to quit: ")
+                    "\nEnter element number to visualize, 'all' to process all fields, 'r' to refresh list, or 'q' to quit: ")
 
                 if choice.lower() == 'q':
                     break
                 elif choice.lower() == 'r':
                     print("\nRefreshing list of elements...")
                     clickable_elements = analyze_form_fields(pages[0])
+                    continue
+                elif choice.lower() == 'all':
+                    print("\nProcessing all fields in sequence...")
+                    clickable_elements = process_all_fields(
+                        pages[0], clickable_elements)
                     continue
 
                 element_index = int(choice)
@@ -1061,8 +1113,9 @@ def main():
                 else:
                     print("Invalid element number")
             except ValueError:
-                if choice.lower() not in ['q', 'r']:
-                    print("Please enter a valid number, 'r' to refresh, or 'q' to quit")
+                if choice.lower() not in ['q', 'r', 'all']:
+                    print(
+                        "Please enter a valid number, 'all' to process all fields, 'r' to refresh, or 'q' to quit")
 
         input("\nPress Enter to exit...")
     except Exception as e:
