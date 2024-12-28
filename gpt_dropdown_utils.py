@@ -2,6 +2,8 @@ from openai import OpenAI
 from dotenv import load_dotenv
 import os
 
+# click space search the field
+
 
 def truncate(text, length=30):
     """Truncate text to specified length"""
@@ -31,12 +33,12 @@ def get_dropdown_suggestion(field_info, resume_text, attempt=1):
 
         # Format the message to get a partial search term
         message = f"""Given a dropdown field in a job application and the candidate's resume, provide a PARTIAL search term that would efficiently find the best option.
-        Return ONLY the shortest search term that would uniquely identify the best option, no explanation.
+        Return ONLY the shortest search term that would uniquely identify the best option, no explanation. The length of the search term should be proportional to the length of actual text youre trying to match.
         
         For example:
         - If looking for "University of California, Davis" just return "davis"
         - If looking for "Yes" just return "y"
-        - If looking for "Software Engineer" just return "soft"
+        - If looking for "Software Engineer" just return "so"
         
         Field details:
         Label: {field_info.get('label', '')}
@@ -85,7 +87,7 @@ def get_best_option_number(new_elements, original_label, resume_text):
         Resume:
         {resume_text}
         
-        For any information not found in the resume, choose the best option that would best answer the question/field in a positive way.
+        For any information not found in the resume but the options seem to be related to the question/field, choose the best option that would best answer the question/field in a positive way.
         """
 
         print("\n=== GPT API Call ===")

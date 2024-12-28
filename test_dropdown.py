@@ -5,7 +5,7 @@ import time
 from datetime import datetime
 
 # need was click successful function
-# two types of drop dwon clicks possible one is into the textbox and the other is into the dropdown
+# TODO:two types of drop dwon clicks possible one is into the textbox and the other is into the dropdown
 
 
 def analyze_form_fields(page):
@@ -630,7 +630,7 @@ def click_and_type_dropdown(page, element):
                 pass
 
         if clicked:
-            max_attempts = 10
+            max_attempts = 4
             attempt = 0
 
             while attempt < max_attempts:
@@ -718,66 +718,72 @@ def click_and_type_dropdown(page, element):
 
                         try:
                             if selected_element.get('text'):
-                                print("\nDEBUG: Clicking with exact=True match...")
-                                page.get_by_text(
-                                    selected_element['text'], exact=True).click(timeout=3000)
                                 print(
-                                    f"DEBUG: Successfully clicked option: '{selected_element['text']}'")
-
-                                # Verify if field has content
-                                print("\nDEBUG: Verifying field content...")
+                                    "\nDEBUG: Attempting to click all matching elements...")
+                                # Reset focus before attempting clicks
+                                print(
+                                    "DEBUG: Resetting focus before click attempts...")
+                                reset_focus(page, element)
                                 time.sleep(0.5)
-                                if verify_field_content(page, element):
-                                    print("DEBUG: Field successfully populated ✓")
-                                    return True
+
+                                # Get all matching elements
+                                matching_elements = page.get_by_text(
+                                    selected_element['text'], exact=True).all()
+                                print(
+                                    f"DEBUG: Found {len(matching_elements)} matching elements")
+
+                                # Try clicking each matching element
+                                for i, elem in enumerate(matching_elements):
+                                    try:
+                                        print(
+                                            f"DEBUG: Trying to click match #{i+1}")
+                                        # Reset focus before each click attempt
+                                        reset_focus(page, element)
+                                        time.sleep(0.5)
+
+                                        elem.click(timeout=3000)
+                                        # Short wait to see if click worked
+                                        time.sleep(0.5)
+
+                                        # Check if field is populated after this click
+                                        if verify_field_content(page, element):
+                                            print(
+                                                f"DEBUG: Successfully clicked match #{i+1} ✓")
+                                            return True
+                                        else:
+                                            print(
+                                                f"DEBUG: Click on match #{i+1} didn't populate field ✗")
+                                    except Exception as click_error:
+                                        print(
+                                            f"DEBUG: Failed to click match #{i+1}: {str(click_error)}")
+                                        continue
+
+                                # If we get here, none of the clicks worked
+                                print(
+                                    "\nDEBUG: None of the matching elements worked")
+                                removed_element = running_elements.pop(
+                                    option_number)
+                                print(
+                                    f"DEBUG: Removed option [{option_number}]: '{removed_element.get('text', '')}'")
+
+                                # Only retype search term if using GPT-4o
+                                if attempt >= len(models):
+                                    print(
+                                        f"\nDEBUG: Retyping search term: '{search_term}'")
+                                    clear_input_field(page)
+                                    time.sleep(0.5)
+                                    page.keyboard.type(search_term)
+                                    time.sleep(0.5)
+                                    continue
                                 else:
                                     print(
-                                        "\nDEBUG: Field still empty after selection ✗")
-                                    removed_element = running_elements.pop(
-                                        option_number)
-                                    print(
-                                        f"DEBUG: Removed option [{option_number}]: '{removed_element.get('text', '')}'")
-                                    print(
-                                        f"DEBUG: Remaining options: {len(running_elements)}")
-
-                                    # Only retype search term if using GPT-4o
-                                    if attempt >= len(models):  # We're using GPT-4o
-                                        print(
-                                            f"\nDEBUG: Retyping search term: '{search_term}'")
-                                        clear_input_field(page)
-                                        time.sleep(0.5)  # Wait after clearing
-                                        page.keyboard.type(search_term)
-                                        # Wait for dropdown to update
-                                        time.sleep(0.5)
-                                        continue
-                                    else:
-                                        print(
-                                            "DEBUG: Moving to next model for new search term...")
-                                        break  # Break inner loop to try new search term
+                                        "DEBUG: Moving to next model for new search term...")
+                                    break
 
                         except Exception as e:
-                            print(f"\nDEBUG: Error clicking option: {str(e)}")
-                            print(f"DEBUG: Error type: {type(e).__name__}")
-                            removed_element = running_elements.pop(
-                                option_number)
                             print(
-                                f"DEBUG: Removed failed option [{option_number}]: '{removed_element.get('text', '')}'")
-                            print(
-                                f"DEBUG: Remaining options: {len(running_elements)}")
-
-                            # Only retype search term if using GPT-4o
-                            if attempt >= len(models):  # We're using GPT-4o
-                                print(
-                                    f"\nDEBUG: Retyping search term: '{search_term}'")
-                                clear_input_field(page)
-                                time.sleep(0.5)  # Wait after clearing
-                                page.keyboard.type(search_term)
-                                time.sleep(0.5)  # Wait for dropdown to update
-                                continue
-                            else:
-                                print(
-                                    "DEBUG: Moving to next model for new search term...")
-                                break  # Break inner loop to try new search term
+                                f"\nDEBUG: Error in main click attempt: {str(e)}")
+                            # ... rest of error handling ...
 
                     print(
                         f"\nDEBUG: No more options to try (started with {len(new_elements)}, remaining: {len(running_elements)})")
@@ -792,8 +798,46 @@ def click_and_type_dropdown(page, element):
         print("Failed to click element using all strategies")
         return False
 
+        # After all retries are exhausted and field is still empty
+        if not verify_field_content(page, element):
+            print(
+                "\nDEBUG: All retries failed. Attempting fallback: select first dropdown option")
+            try:
+                # Reset focus and click into field
+                reset_focus(page, element)
+                time.sleep(0.5)
+
+                # Type the last search term used
+                print(f"DEBUG: Typing last search term: '{search_term}'")
+                page.keyboard.type(search_term)
+                time.sleep(0.5)
+
+                # Press down arrow once
+                print("DEBUG: Pressing Down Arrow")
+                page.keyboard.press("ArrowDown")
+                time.sleep(0.5)
+
+                # Press Enter to select
+                print("DEBUG: Pressing Enter")
+                page.keyboard.press("Enter")
+                time.sleep(0.5)
+
+                # Reset focus again before moving to next field
+                reset_focus(page, element)
+                time.sleep(0.5)
+
+                # Final verification
+                if verify_field_content(page, element):
+                    print("DEBUG: Fallback succeeded - field now populated ✓")
+                else:
+                    print("DEBUG: Fallback failed - field still empty ✗")
+            except Exception as e:
+                print(f"DEBUG: Fallback attempt failed with error: {str(e)}")
+
+        return verify_field_content(page, element)
+
     except Exception as e:
-        print(f"Error in click_and_type_dropdown: {e}")
+        print(f"Error in click_and_type_dropdown: {str(e)}")
         return False
 
 
@@ -829,10 +873,16 @@ def main():
                     if empty_dropdowns:
                         print(
                             f"\nFound {len(empty_dropdowns)} empty dropdowns. Attempting to fill...")
-                        for idx, element in empty_dropdowns:
+                        for i, (idx, element) in enumerate(empty_dropdowns):
                             print(
                                 f"\n=== Filling Dropdown [{idx}]: {element['label']} ===")
                             click_and_type_dropdown(pages[0], element)
+
+                            # Reset focus between dropdowns, except for the last one
+                            if i < len(empty_dropdowns) - 1:
+                                print("\nResetting focus between dropdowns...")
+                                reset_focus(pages[0], element)
+                                time.sleep(0.5)  # Small delay after reset
                     else:
                         print("\nNo empty dropdowns found!")
                     continue
