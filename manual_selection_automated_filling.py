@@ -127,12 +127,20 @@ def analyze_form_fields(page):
         function getFieldDetails(el) {
             // Get label through multiple methods
             const getLabel = (el) => {
-                // Check explicit label
+                // Check explicit label with proper CSS escaping
                 if (el.id) {
-                    const explicitLabel = document.querySelector(`label[for="${el.id}"]`);
-                    if (explicitLabel) return explicitLabel.textContent.trim();
+                    try {
+                        // CSS.escape is the proper way to escape IDs for CSS selectors
+                        const escapedId = CSS.escape(el.id);
+                        const explicitLabel = document.querySelector(`label[for="${escapedId}"]`);
+                        if (explicitLabel) return explicitLabel.textContent.trim();
+                    } catch (e) {
+                        // If selector fails, try alternative methods
+                        console.log("Error finding label by ID, trying alternatives");
+                    }
                 }
                 
+                // Rest of the existing label finding logic
                 // Check aria-label
                 if (el.getAttribute('aria-label')) 
                     return el.getAttribute('aria-label').trim();
@@ -157,25 +165,50 @@ def analyze_form_fields(page):
                 return el.placeholder || el.name || '';
             };
 
-            return {
-                type: el.tagName.toLowerCase(),
-                label: getLabel(el),
-                value: el.value || '',
-                isEmpty: !el.value,
-                isRequired: el.required || el.getAttribute('aria-required') === 'true',
-                isVisible: el.offsetParent !== null,
-                isEnabled: !el.disabled,
-                xpath: getXPath(el),
-                attributes: {
-                    id: el.id,
-                    name: el.name,
-                    class: el.className,
-                    role: el.getAttribute('role'),
-                    'aria-label': el.getAttribute('aria-label'),
-                    'aria-controls': el.getAttribute('aria-controls'),
-                    placeholder: el.placeholder
-                }
-            };
+            // Wrap the entire function in try-catch to ensure it never fails completely
+            try {
+                return {
+                    type: el.tagName.toLowerCase(),
+                    label: getLabel(el),
+                    value: el.value || '',
+                    isEmpty: !el.value,
+                    isRequired: el.required || el.getAttribute('aria-required') === 'true',
+                    isVisible: el.offsetParent !== null,
+                    isEnabled: !el.disabled,
+                    xpath: getXPath(el),
+                    attributes: {
+                        id: el.id,
+                        name: el.name,
+                        class: el.className,
+                        role: el.getAttribute('role'),
+                        'aria-label': el.getAttribute('aria-label'),
+                        'aria-controls': el.getAttribute('aria-controls'),
+                        placeholder: el.placeholder
+                    }
+                };
+            } catch (e) {
+                // If anything fails, return a minimal valid object
+                console.log("Error in getFieldDetails, returning minimal info");
+                return {
+                    type: el.tagName ? el.tagName.toLowerCase() : 'unknown',
+                    label: '',
+                    value: '',
+                    isEmpty: true,
+                    isRequired: false,
+                    isVisible: true,
+                    isEnabled: true,
+                    xpath: '',
+                    attributes: {
+                        id: '',
+                        name: '',
+                        class: '',
+                        role: '',
+                        'aria-label': '',
+                        'aria-controls': '',
+                        placeholder: ''
+                    }
+                };
+            }
         }
 
         function getXPath(el) {
@@ -429,119 +462,195 @@ def get_detailed_element_info(page, element):
         }
 
         function getElementDetails(element) {
-            // Get any associated label
-            let labelText = '';
-            if (element.id) {
-                const label = document.querySelector(`label[for="${element.id}"]`);
-                if (label) labelText = label.textContent.trim();
-            }
-            
-            // Check if element is truly hidden
-            const style = window.getComputedStyle(element);
-            const isHiddenByStyle = style.display === 'none' || 
-                                  style.visibility === 'hidden' || 
-                                  style.opacity === '0';
-            const isHiddenByDimensions = element.offsetWidth === 0 && 
-                                       element.offsetHeight === 0;
-            const isHiddenByOverflow = element.offsetParent === null && 
-                                     style.position !== 'fixed' && 
-                                     style.position !== 'absolute';
-            
-            // Special handling for inputs and selects
-            const isFormField = element.tagName.toLowerCase() === 'input' || 
-                              element.tagName.toLowerCase() === 'select' ||
-                              element.getAttribute('role') === 'combobox' ||
-                              element.getAttribute('role') === 'listbox';
-            
-            // Check if element has any interaction handlers
-            const hasHandlers = element.onclick || 
-                              element.onmousedown || 
-                              element.onmouseup || 
-                              element.onmouseover ||
-                              element.onkeydown || 
-                              element.onkeyup || 
-                              element.onkeypress ||
-                              element.getAttribute('onclick');
-
-            return {
-                tag: element.tagName.toLowerCase(),
-                id: element.id,
-                classes: Array.from(element.classList),
-                attributes: Array.from(element.attributes).map(attr => ({
-                    name: attr.name,
-                    value: attr.value
-                })),
-                textContent: element.textContent.trim(),
-                value: element.value || '',
-                dimensions: element.getBoundingClientRect(),
-                computedStyle: getComputedStyleProperties(element),
-                isVisible: !isHiddenByStyle && !isHiddenByDimensions && !isHiddenByOverflow,
-                isFormField: isFormField,
-                hasMouseListeners: hasHandlers,
-                hasKeyboardListeners: !!element.onkeydown || 
-                                    !!element.onkeyup || 
-                                    !!element.onkeypress,
-                ariaAttributes: {
-                    role: element.getAttribute('role'),
-                    label: element.getAttribute('aria-label') || labelText,
-                    description: element.getAttribute('aria-description'),
-                    expanded: element.getAttribute('aria-expanded'),
-                    controls: element.getAttribute('aria-controls'),
-                    selected: element.getAttribute('aria-selected'),
-                    hidden: element.getAttribute('aria-hidden'),
-                    value: element.getAttribute('aria-value'),
-                    checked: element.getAttribute('aria-checked')
+            try {
+                // Get any associated label with proper CSS escaping
+                let labelText = '';
+                if (element.id) {
+                    try {
+                        const escapedId = CSS.escape(element.id);
+                        const label = document.querySelector(`label[for="${escapedId}"]`);
+                        if (label) labelText = label.textContent.trim();
+                    } catch (e) {
+                        console.log("Error finding label by ID, trying alternatives");
+                    }
                 }
-            };
+                
+                // Check if element is truly hidden
+                const style = window.getComputedStyle(element);
+                const isHiddenByStyle = style.display === 'none' || 
+                                      style.visibility === 'hidden' || 
+                                      style.opacity === '0';
+                const isHiddenByDimensions = element.offsetWidth === 0 && 
+                                           element.offsetHeight === 0;
+                const isHiddenByOverflow = element.offsetParent === null && 
+                                         style.position !== 'fixed' && 
+                                         style.position !== 'absolute';
+                
+                // Special handling for inputs and selects
+                const isFormField = element.tagName.toLowerCase() === 'input' || 
+                                  element.tagName.toLowerCase() === 'select' ||
+                                  element.getAttribute('role') === 'combobox' ||
+                                  element.getAttribute('role') === 'listbox';
+                
+                // Check if element has any interaction handlers
+                const hasHandlers = element.onclick || 
+                                  element.onmousedown || 
+                                  element.onmouseup || 
+                                  element.onmouseover ||
+                                  element.onkeydown || 
+                                  element.onkeyup || 
+                                  element.onkeypress ||
+                                  element.getAttribute('onclick');
+
+                return {
+                    tag: element.tagName.toLowerCase(),
+                    id: element.id,
+                    classes: Array.from(element.classList),
+                    attributes: Array.from(element.attributes).map(attr => ({
+                        name: attr.name,
+                        value: attr.value
+                    })),
+                    textContent: element.textContent.trim(),
+                    value: element.value || '',
+                    dimensions: element.getBoundingClientRect(),
+                    computedStyle: getComputedStyleProperties(element),
+                    isVisible: !isHiddenByStyle && !isHiddenByDimensions && !isHiddenByOverflow,
+                    isFormField: isFormField,
+                    hasMouseListeners: hasHandlers,
+                    hasKeyboardListeners: !!element.onkeydown || 
+                                        !!element.onkeyup || 
+                                        !!element.onkeypress,
+                    ariaAttributes: {
+                        role: element.getAttribute('role'),
+                        label: element.getAttribute('aria-label') || labelText,
+                        description: element.getAttribute('aria-description'),
+                        expanded: element.getAttribute('aria-expanded'),
+                        controls: element.getAttribute('aria-controls'),
+                        selected: element.getAttribute('aria-selected'),
+                        hidden: element.getAttribute('aria-hidden'),
+                        value: element.getAttribute('aria-value'),
+                        checked: element.getAttribute('aria-checked')
+                    }
+                };
+            } catch (e) {
+                // Return minimal valid object if anything fails
+                console.log("Error in getElementDetails, returning minimal info");
+                return {
+                    tag: element.tagName ? element.tagName.toLowerCase() : 'unknown',
+                    id: '',
+                    classes: [],
+                    attributes: [],
+                    textContent: '',
+                    value: '',
+                    dimensions: element.getBoundingClientRect(),
+                    computedStyle: getComputedStyleProperties(element),
+                    isVisible: true,
+                    isFormField: false,
+                    hasMouseListeners: false,
+                    hasKeyboardListeners: false,
+                    ariaAttributes: {
+                        role: '',
+                        label: '',
+                        description: '',
+                        expanded: '',
+                        controls: '',
+                        selected: '',
+                        hidden: '',
+                        value: '',
+                        checked: ''
+                    }
+                };
+            }
         }
 
         // Get ALL visible elements in the document, including form fields regardless of visibility
         function getAllVisibleElements() {
-            return Array.from(document.querySelectorAll('*'))
-                .filter(el => {
-                    const style = window.getComputedStyle(el);
-                    const isFormField = el.tagName.toLowerCase() === 'input' || 
-                                      el.tagName.toLowerCase() === 'select' ||
-                                      el.getAttribute('role') === 'combobox' ||
-                                      el.getAttribute('role') === 'listbox';
-                    
-                    // Always include form fields, even if they appear hidden
-                    if (isFormField) return true;
-                    
-                    // For other elements, check visibility
-                    return style.display !== 'none' && 
-                           style.visibility !== 'hidden' && 
-                           style.opacity !== '0' &&
-                           el.offsetParent !== null;
-                })
-                .map(getElementDetails);
+            try {
+                return Array.from(document.querySelectorAll('*'))
+                    .filter(el => {
+                        const style = window.getComputedStyle(el);
+                        const isFormField = el.tagName.toLowerCase() === 'input' || 
+                                          el.tagName.toLowerCase() === 'select' ||
+                                          el.getAttribute('role') === 'combobox' ||
+                                          el.getAttribute('role') === 'listbox';
+                        
+                        // Always include form fields, even if they appear hidden
+                        if (isFormField) return true;
+                        
+                        // For other elements, check visibility
+                        return style.display !== 'none' && 
+                               style.visibility !== 'hidden' && 
+                               style.opacity !== '0' &&
+                               el.offsetParent !== null;
+                    })
+                    .map(el => {
+                        try {
+                            return getElementDetails(el);
+                        } catch (e) {
+                            // Skip problematic elements
+                            return null;
+                        }
+                    })
+                    .filter(Boolean); // Remove any null entries
+            } catch (e) {
+                console.log("Error in getAllVisibleElements, returning empty array");
+                return [];
+            }
         }
 
         // Get parent chain (up to 3 levels)
         let parentChain = [];
-        let parent = el.parentElement;
-        let level = 0;
-        while (parent && level < 3) {
-            parentChain.push(getElementDetails(parent));
-            parent = parent.parentElement;
-            level++;
+        try {
+            let parent = el.parentElement;
+            let level = 0;
+            while (parent && level < 3) {
+                try {
+                    parentChain.push(getElementDetails(parent));
+                } catch (e) {
+                    // Skip problematic parent
+                }
+                parent = parent.parentElement;
+                level++;
+            }
+        } catch (e) {
+            console.log("Error getting parent chain");
         }
 
         // Get siblings
-        const siblings = Array.from(el.parentElement?.children || [])
-            .filter(child => child !== el)
-            .map(getElementDetails);
+        const siblings = [];
+        try {
+            siblings.push(...Array.from(el.parentElement?.children || [])
+                .filter(child => child !== el)
+                .map(child => {
+                    try {
+                        return getElementDetails(child);
+                    } catch (e) {
+                        return null;
+                    }
+                })
+                .filter(Boolean));
+        } catch (e) {
+            console.log("Error getting siblings");
+        }
 
         // Get ALL children recursively
         function getAllChildren(element) {
             const children = [];
-            function traverse(el) {
-                Array.from(el.children).forEach(child => {
-                    children.push(getElementDetails(child));
-                    traverse(child);
-                });
+            try {
+                function traverse(el) {
+                    Array.from(el.children).forEach(child => {
+                        try {
+                            children.push(getElementDetails(child));
+                            traverse(child);
+                        } catch (e) {
+                            // Skip problematic child
+                        }
+                    });
+                }
+                traverse(element);
+            } catch (e) {
+                console.log("Error getting children");
             }
-            traverse(element);
             return children;
         }
 
@@ -855,6 +964,140 @@ def visualize_element_changes(page, element):
                     print("Please enter a valid number or 'q'")
         else:
             print("\nNo new clickable elements detected")
+
+            # First check if this is a native select with options
+            native_options = page.evaluate('''(elementInfo) => {
+                function getFieldByMultipleMethods() {
+                    let el;
+                    
+                    // Try by ID
+                    const id = elementInfo.id;
+                    if (id) {
+                        el = document.getElementById(id);
+                        if (el) return { method: 'id', element: el };
+                    }
+                    
+                    // Try by XPath
+                    const xpath = elementInfo.xpath;
+                    if (xpath) {
+                        el = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                        if (el) return { method: 'xpath', element: el };
+                    }
+                    
+                    return null;
+                }
+
+                const result = getFieldByMultipleMethods();
+                if (!result) return { error: 'Could not find field' };
+                
+                const el = result.element;
+                
+                // Check if it's a select element and has options
+                if (el.tagName.toLowerCase() === 'select') {
+                    return Array.from(el.querySelectorAll('option'))
+                        .filter(opt => {
+                            // Skip the "Please Select" or empty options
+                            const text = opt.textContent.trim().toLowerCase();
+                            const value = (opt.value || '').trim();
+                            return !opt.disabled && 
+                                   value && 
+                                   value !== 'Please Select' &&
+                                   !text.includes('please select') &&
+                                   !text.includes('select...') &&
+                                   value !== '-1' &&
+                                   value !== '';
+                        })
+                        .map(opt => ({
+                            text: opt.textContent.trim(),
+                            value: opt.value,
+                            selected: opt.selected,
+                            // Include any additional attributes that might be useful
+                            attributes: {
+                                class: opt.className,
+                                id: opt.id,
+                                'data-value': opt.getAttribute('data-value'),
+                                'aria-label': opt.getAttribute('aria-label')
+                            }
+                        }));
+                }
+                
+                return [];
+            }''', {
+                'id': element['attributes']['id'],
+                'xpath': element['xpath']
+            })
+
+            if native_options and len(native_options) > 0:
+                print(f"\nFound {len(native_options)} native select options")
+
+                # Format options for GPT
+                formatted_elements = [
+                    {
+                        'text': opt['text'],
+                        'class': ''  # Native options don't have classes
+                    }
+                    for opt in native_options
+                ]
+
+                # Get GPT's selection
+                best_option = select_best_option(
+                    formatted_elements,
+                    element['label']
+                )
+
+                if best_option != 'false':
+                    selected_option = native_options[best_option]
+                    print(f"\nGPT selected option: {selected_option['text']}")
+
+                    try:
+                        # Use JavaScript to set the value
+                        page.evaluate('''(elementInfo, value) => {
+                            function getFieldByMultipleMethods() {
+                                let el;
+                                
+                                // Try by ID
+                                const id = elementInfo.id;
+                                if (id) {
+                                    el = document.getElementById(id);
+                                    if (el) return { method: 'id', element: el };
+                                }
+                                
+                                // Try by XPath
+                                const xpath = elementInfo.xpath;
+                                if (xpath) {
+                                    el = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                                    if (el) return { method: 'xpath', element: el };
+                                }
+                                
+                                return null;
+                            }
+
+                            const result = getFieldByMultipleMethods();
+                            if (!result) return false;
+                            
+                            const el = result.element;
+                            el.value = value;
+                            
+                            // Trigger change event
+                            const event = new Event('change', { bubbles: true });
+                            el.dispatchEvent(event);
+                            
+                            return true;
+                        }''', {
+                            'id': element['attributes']['id'],
+                            'xpath': element['xpath']
+                        }, selected_option['value'])
+
+                        print("Successfully set select value")
+                        time.sleep(0.1)
+                        break
+                    except Exception as e:
+                        print(f"Error setting select value: {e}")
+                else:
+                    print(
+                        "GPT couldn't determine the best option from native select options")
+
+            # If no native options or selection failed, try search term approach
             print("Attempting to type a search term...")
             search_term = generate_search_term_no_context(element['label'])
 

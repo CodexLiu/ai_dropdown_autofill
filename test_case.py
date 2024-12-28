@@ -21,8 +21,8 @@ def initialize_browser():
         # "https://boards.greenhouse.io/vaticlabs/jobs/598228?utm_source=Simplify&gh_src=Simplify",
         # "https://www.verition.com/open-positions?gh_jid=4011276007?utm_source=Simplify&gh_src=Simplify",
         # "https://boards.greenhouse.io/scm/jobs/4833274?utm_source=Simplify&gh_src=Simplify",
-        # "https://job-boards.greenhouse.io/twitch/jobs/7777001002?utm_source=Simplify&gh_src=Simplify"
-        "https://careers.adobe.com/us/en/apply?jobSeqNo=ADOBUSR149673EXTERNALENUS&utm_campaign=google_jobs_apply&utm_source=google_jobs_apply&utm_medium=organic&step=1&stepname=personalInformation"
+        "https://job-boards.greenhouse.io/twitch/jobs/7777001002?utm_source=Simplify&gh_src=Simplify"
+        # "https://careers.adobe.com/us/en/apply?jobSeqNo=ADOBUSR149673EXTERNALENUS&utm_campaign=google_jobs_apply&utm_source=google_jobs_apply&utm_medium=organic&step=1&stepname=personalInformation"
     ]
 
     # Connect to Chrome and set up initial state
