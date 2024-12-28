@@ -321,30 +321,50 @@ def analyze_form_fields(page):
     # Group fields by type
     print("\n=== Element Analysis ===")
     for field in form_fields:
-        print(f"\n[{current_index}] Main Element:")
-        print(f"    Type: {field['type']}")
-        print(f"    Label: {field['label']}")
-        print(f"    Role: {field['attributes']['role']}")
-        print(f"    Class: {field['attributes']['class']}")
-        print(f"    ID: {field['attributes']['id']}")
+        # Skip if the main element is a button
+        if (field['type'] == 'button' or
+            field['attributes']['role'] == 'button' or
+            'btn' in (field['attributes']['class'] or '').lower() or
+                'button' in (field['attributes']['class'] or '').lower()):
+            continue
 
-        # Check if field is empty
-        is_empty = verify_field_content(page, field)
-        print(
-            f"    Content Status: {'Empty' if not is_empty else 'Has Content'}")
-
+        # Check if the field has any related button elements
+        has_button = False
         if field.get('relatedElements'):
-            print("    Related Elements:")
             for rel in field['relatedElements']:
-                print(
-                    f"      - {rel['type']} ({rel['role'] or 'no role'}) {rel['label']}")
-                if rel['id']:
-                    print(f"        ID: {rel['id']}")
-                if rel['class']:
-                    print(f"        Class: {rel['class']}")
+                if (rel['type'] == 'button' or
+                    rel['role'] == 'button' or
+                    'btn' in (rel['class'] or '').lower() or
+                        'button' in (rel['class'] or '').lower()):
+                    has_button = True
+                    break
 
-        clickable_elements.append(field)
-        current_index += 1
+        # Only display and store elements that have related buttons
+        if has_button:
+            print(f"\n[{current_index}] Main Element:")
+            print(f"    Type: {field['type']}")
+            print(f"    Label: {field['label']}")
+            print(f"    Role: {field['attributes']['role']}")
+            print(f"    Class: {field['attributes']['class']}")
+            print(f"    ID: {field['attributes']['id']}")
+
+            # Check if field is empty
+            is_empty = verify_field_content(page, field)
+            print(
+                f"    Content Status: {'Empty' if not is_empty else 'Has Content'}")
+
+            if field.get('relatedElements'):
+                print("    Related Elements:")
+                for rel in field['relatedElements']:
+                    print(
+                        f"      - {rel['type']} ({rel['role'] or 'no role'}) {rel['label']}")
+                    if rel['id']:
+                        print(f"        ID: {rel['id']}")
+                    if rel['class']:
+                        print(f"        Class: {rel['class']}")
+
+            clickable_elements.append(field)
+            current_index += 1
 
     return clickable_elements
 
