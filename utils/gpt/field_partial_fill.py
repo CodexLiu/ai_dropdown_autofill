@@ -73,7 +73,7 @@ def generate_search_term(sample_elements, field_label):
         if len(answer) > 5 or ' ' in answer:
             print(f"Invalid search term generated: {answer}")
             return None
-
+        answer = answer.strip('"\'')
         return answer
 
     except Exception as e:

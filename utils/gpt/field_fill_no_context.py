@@ -21,7 +21,7 @@ def generate_search_term(field_label):
         field_label: The label/question of the field being filled
 
     Returns:
-        str: A partial search term (max 5 chars) or None if can't generate
+        str: A partial search term or None if can't generate
     """
     try:
         # Read resume text from info.txt for context
@@ -33,7 +33,7 @@ def generate_search_term(field_label):
             resume_text = ""
 
         message = f"""Given this field label, generate a PARTIAL search term that would help filter and find the best option from my resume.
-        The search term should be at most 5 characters long and be the most identifying part of the desired option from the resume.
+        The search term should be the most identifying part of the desired option from the resume.
         
         Return ONLY the search term, no explanation. The term should be lowercase and not include any spaces.
         
@@ -58,12 +58,8 @@ def generate_search_term(field_label):
         )
 
         answer = response.choices[0].message.content.strip().lower()
-
-        # Validate the response
-        if len(answer) > 5 or ' ' in answer:
-            print(f"Invalid search term generated: {answer}")
-            return None
-
+        # Remove quotes if present
+        answer = answer.strip('"\'')
         return answer
 
     except Exception as e:

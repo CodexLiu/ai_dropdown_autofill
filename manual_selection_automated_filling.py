@@ -2,6 +2,7 @@ from playwright.sync_api import sync_playwright
 from test_case import initialize_browser
 from utils.gpt.option_selector import select_best_option
 from utils.gpt.field_partial_fill import generate_search_term
+from utils.gpt.field_fill_no_context import generate_search_term as generate_search_term_no_context
 import time
 from datetime import datetime
 
@@ -829,6 +830,153 @@ def visualize_element_changes(page, element):
                     print("Please enter a valid number or 'q'")
         else:
             print("\nNo new clickable elements detected")
+            print("Attempting to type a search term...")
+            search_term = generate_search_term_no_context(element['label'])
+
+            if search_term:
+                print(f"\nTyping search term: {search_term}")
+                try:
+                    # Focus and type into the original field
+                    if element['attributes']['id']:
+                        page.click(f"#{element['attributes']['id']}")
+                    elif element['xpath']:
+                        page.click(f"xpath={element['xpath']}")
+
+                    # Type the search term
+                    page.keyboard.type(search_term)
+                    time.sleep(1.5)  # Wait for dropdown to update
+
+                    # Get updated state after search using the same method as analyze_form_fields
+                    print("\nGetting updated state after search...")
+                    try:
+                        post_search_state = page.evaluate('''(elementInfo) => {
+                            function getFieldByMultipleMethods() {
+                                let el;
+                                
+                                // Try by ID
+                                const id = elementInfo.id;
+                                if (id) {
+                                    el = document.getElementById(id);
+                                    if (el) return { method: 'id', element: el };
+                                }
+                                
+                                // Try by XPath
+                                const xpath = elementInfo.xpath;
+                                if (xpath) {
+                                    el = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                                    if (el) return { method: 'xpath', element: el };
+                                }
+                                
+                                return null;
+                            }
+
+                            const result = getFieldByMultipleMethods();
+                            if (!result) return { error: 'Could not find field' };
+                            
+                            const el = result.element;
+                            
+                            // Get all related elements (dropdown options)
+                            const listboxId = `react-select-${el.id}-listbox`;
+                            const listbox = document.getElementById(listboxId);
+                            
+                            if (!listbox) return { error: 'Could not find listbox' };
+                            
+                            // Get all option elements within the listbox
+                            const options = Array.from(listbox.querySelectorAll('[class*="select__option"]'))
+                                .map(opt => ({
+                                    tag: opt.tagName.toLowerCase(),
+                                    id: opt.id,
+                                    textContent: opt.textContent.trim(),
+                                    classes: Array.from(opt.classList)
+                                }));
+                                
+                            return { allVisibleElements: options };
+                        }''', {
+                            'id': element['attributes']['id'],
+                            'xpath': element['xpath']
+                        })
+
+                        if not post_search_state or 'error' in post_search_state:
+                            raise Exception(
+                                f"Error finding options: {post_search_state.get('error', 'Unknown error')}")
+
+                        # These are all new elements since they're from the dropdown
+                        filtered_elements = post_search_state['allVisibleElements']
+                        print(
+                            f"Found {len(filtered_elements)} dropdown options")
+
+                        # Format filtered elements for GPT
+                        formatted_elements = [
+                            {
+                                'text': el['textContent'],
+                                'class': ' '.join(el['classes'])
+                            }
+                            for el in filtered_elements
+                            if not ('attach' in (el['textContent'] or '').lower())
+                        ]
+
+                        if filtered_elements:
+                            new_elements = filtered_elements
+                            print(
+                                f"Filtered down to {len(formatted_elements)} options")
+
+                            # Get GPT's selection
+                            best_option = select_best_option(
+                                formatted_elements,
+                                element['label']
+                            )
+
+                            if best_option != 'false':
+                                selected_element = new_elements[best_option]
+                                print(
+                                    f"\nGPT selected option {best_option + 1}")
+
+                                # Try clicking by various methods
+                                try:
+                                    if selected_element['id']:
+                                        page.click(
+                                            f"#{selected_element['id']}")
+                                    elif selected_element['textContent']:
+                                        page.get_by_text(
+                                            selected_element['textContent'], exact=True).click()
+                                    print(
+                                        f"\nClicked element {best_option + 1}")
+
+                                    # Reset focus after clicking
+                                    # Wait for click to register
+                                    time.sleep(0.1)
+                                    reset_focus(page, element)
+                                    time.sleep(0.1)  # Wait for focus reset
+                                except Exception as e:
+                                    print(f"Error clicking element: {e}")
+                                    print("Clearing search term...")
+                                    page.keyboard.press("Control+a")
+                                    page.keyboard.press("Backspace")
+                            else:
+                                print("GPT couldn't determine the best option")
+                                print("Clearing search term...")
+                                page.keyboard.press("Control+a")
+                                page.keyboard.press("Backspace")
+                        else:
+                            print("No matches found with search term")
+                            print("Clearing search term...")
+                            page.keyboard.press("Control+a")
+                            page.keyboard.press("Backspace")
+                    except Exception as e:
+                        print(f"Error getting updated state: {str(e)}")
+                        print("Clearing search term...")
+                        page.keyboard.press("Control+a")
+                        page.keyboard.press("Backspace")
+                except Exception as e:
+                    print(f"Error using search functionality: {e}")
+                    # Clear any partial input
+                    try:
+                        page.keyboard.press("Control+a")
+                        page.keyboard.press("Backspace")
+                    except:
+                        pass
+            else:
+                print("Could not generate search term")
             break
 
         print("\n=== Element Visualization End ===")
@@ -886,7 +1034,7 @@ def main():
     try:
         # Initialize browser and get pages
         chrome_process, playwright, browser, pages = initialize_browser()
-        time.sleep(3)  # Wait for pages to load
+        time.sleep(1.5)  # Wait for pages to load
 
         # Analyze forms on first page
         clickable_elements = analyze_form_fields(pages[0])
