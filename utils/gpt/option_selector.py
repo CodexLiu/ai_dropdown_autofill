@@ -32,7 +32,10 @@ def select_best_option(elements, field_label, resume_text=None):
         ])
 
         message = f"""Given these clickable elements and the candidate's resume, identify the SINGLE BEST element that should be clicked to answer the question/field.
-        You must EXACTLY match credentials shown in the resume - especially for education, work history, and certifications.
+        For education, work history, and certifications:
+        - If an exact match exists, select that option
+        - If no exact match exists but a closely related option is available, select the most relevant one
+        - If no related options exist, select 'false'
         Other elements might be UI components, labels, or irrelevant options - find the one valid choice.
         If multiple options could work, choose the most specific and accurate one based on the resume.
 
@@ -47,9 +50,9 @@ def select_best_option(elements, field_label, resume_text=None):
         {resume_text}
         
         IMPORTANT: 
-        1. For education and credentials, you MUST select the option that EXACTLY matches what is stated in the resume
-        3. For fields where information isn't directly stated in the resume but options are available, select the most advantageous option
-        4. Never fabricate verifiable facts that are verifiable by a companys internal logs ie working at that company before or being a part of that company
+        1. For education and credentials, select exact matches when available, otherwise choose the most relevant related option
+        2. For fields where information isn't directly stated in the resume but options are available, select the most advantageous option
+        3. Don't fabricate verifiable facts that are verifiable by a company's internal logs ie working at that company before or being a part of that company
         """
 
         # Make API call

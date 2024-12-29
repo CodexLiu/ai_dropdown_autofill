@@ -105,7 +105,7 @@ def visualize_element_changes(page, element, analyze_form_fields_func):
             ]
 
             # If there are 15 or more options, try to narrow down first
-            if len(formatted_elements) >= 50:
+            if len(formatted_elements) >= 90:
                 print("\nLarge number of options detected. Generating search term...")
                 # Take first 5 elements as sample
                 search_term = generate_search_term(
@@ -279,7 +279,7 @@ def visualize_element_changes(page, element, analyze_form_fields_func):
                                         "GPT couldn't determine the best option")
                                     # Try generating a new search term based on the failed results
                                     retry_search_term = generate_retry_search_term(
-                                        sample_elements[:5],
+                                        formatted_elements[:5],
                                         element['label'],
                                         search_term,
                                         formatted_elements
@@ -708,7 +708,7 @@ def visualize_element_changes(page, element, analyze_form_fields_func):
                                 print("GPT couldn't determine the best option")
                                 # Try generating a new search term based on the failed results
                                 retry_search_term = generate_retry_search_term(
-                                    sample_elements[:5],
+                                    formatted_elements[:5],
                                     element['label'],
                                     search_term,
                                     formatted_elements
