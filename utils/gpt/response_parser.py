@@ -20,8 +20,8 @@ def extract_number_from_response(gpt_response):
     """
     try:
         message = f"""Extract ONLY the final chosen number from this GPT response. 
-        Return ONLY the single digit number, nothing else.
-        If no clear single digit number is chosen, return 'false'.
+        Return ONLY the number, nothing else.
+        If no clear number is chosen, return 'false'.
 
         GPT Response:
         {gpt_response}
