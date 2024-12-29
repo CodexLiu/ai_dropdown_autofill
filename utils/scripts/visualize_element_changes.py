@@ -7,6 +7,7 @@ from utils.gpt.field_fill_no_context import generate_search_term as generate_sea
 from utils.scripts.compare_utils import compare_states, compare_styles, compare_aria
 import time
 from datetime import datetime
+import json
 
 
 def visualize_element_changes(page, element, analyze_form_fields_func):
@@ -161,54 +162,105 @@ def visualize_element_changes(page, element, analyze_form_fields_func):
                                 
                                 const el = result.element;
                                 
-                                // Get all related elements (dropdown options)
-                                // Try multiple common dropdown patterns
-                                let options = [];
+                                // Debug info about the main element
+                                console.log('Main Element:', {
+                                    tag: el.tagName,
+                                    id: el.id,
+                                    classes: Array.from(el.classList),
+                                    role: el.getAttribute('role'),
+                                    expanded: el.getAttribute('aria-expanded'),
+                                    controls: el.getAttribute('aria-controls'),
+                                    owns: el.getAttribute('aria-owns')
+                                });
                                 
-                                // Try React-Select pattern
-                                const listboxId = `react-select-${el.id}-listbox`;
-                                const reactSelectListbox = document.getElementById(listboxId);
-                                if (reactSelectListbox) {
-                                    options = Array.from(reactSelectListbox.querySelectorAll('[class*="select__option"]'));
-                                }
-                                
-                                // If no React-Select options found, try other common patterns
-                                if (!options.length) {
-                                    // Try aria-expanded parent pattern
-                                    const expandedParent = document.querySelector('[aria-expanded="true"]');
-                                    if (expandedParent) {
-                                        options = Array.from(expandedParent.querySelectorAll('li, [role="option"]'));
-                                    }
-                                }
-                                
-                                // Try visible dropdown items pattern
-                                if (!options.length) {
-                                    options = Array.from(document.querySelectorAll('.dropdown-item:not([style*="display: none"]), [class*="dropdown"]:not([style*="display: none"]) li, .select-option:not([style*="display: none"])'));
-                                }
-                                
-                                // If still no options found, try any visible list items near the field
-                                if (!options.length) {
-                                    const rect = el.getBoundingClientRect();
-                                    options = Array.from(document.querySelectorAll('li, [role="option"]'))
-                                        .filter(opt => {
-                                            const optRect = opt.getBoundingClientRect();
-                                            return optRect.top > rect.bottom && // Below the field
-                                                   Math.abs(optRect.left - rect.left) < 100 && // Roughly aligned
-                                                   !opt.closest('[style*="display: none"]'); // Not hidden
-                                        });
-                                }
-                                
-                                if (!options.length) {
-                                    return { error: 'Could not find dropdown options' };
-                                }
+                                // Get ALL possible elements that could be options
+                                const allPossibleOptions = {
+                                    // 1. React-Select pattern
+                                    reactSelect: (() => {
+                                        const listboxId = `react-select-${el.id}-listbox`;
+                                        const reactSelectListbox = document.getElementById(listboxId);
+                                        return reactSelectListbox ? 
+                                            Array.from(reactSelectListbox.querySelectorAll('*')).map(opt => ({
+                                                tag: opt.tagName,
+                                                text: opt.textContent,
+                                                classes: Array.from(opt.classList),
+                                                role: opt.getAttribute('role'),
+                                                selected: opt.getAttribute('aria-selected'),
+                                                hidden: opt.hidden || opt.style.display === 'none',
+                                                parent: opt.parentElement ? {
+                                                    tag: opt.parentElement.tagName,
+                                                    classes: Array.from(opt.parentElement.classList),
+                                                    role: opt.parentElement.getAttribute('role')
+                                                } : null
+                                            })) : [];
+                                    })(),
+                                    
+                                    // 2. Aria-expanded elements
+                                    ariaExpanded: (() => {
+                                        const expandedElements = document.querySelectorAll('[aria-expanded]');
+                                        return Array.from(expandedElements).map(exp => ({
+                                            tag: exp.tagName,
+                                            expanded: exp.getAttribute('aria-expanded'),
+                                            children: Array.from(exp.querySelectorAll('*')).map(child => ({
+                                                tag: child.tagName,
+                                                text: child.textContent,
+                                                classes: Array.from(child.classList),
+                                                role: child.getAttribute('role'),
+                                                hidden: child.hidden || child.style.display === 'none'
+                                            }))
+                                        }));
+                                    })(),
+                                    
+                                    // 3. All list items and options near the field
+                                    nearbyElements: (() => {
+                                        const rect = el.getBoundingClientRect();
+                                        return Array.from(document.querySelectorAll('li, [role="option"], [role="listbox"] *, .select-option, .dropdown-item'))
+                                            .map(opt => {
+                                                const optRect = opt.getBoundingClientRect();
+                                                return {
+                                                    tag: opt.tagName,
+                                                    text: opt.textContent,
+                                                    classes: Array.from(opt.classList),
+                                                    role: opt.getAttribute('role'),
+                                                    selected: opt.getAttribute('aria-selected'),
+                                                    hidden: opt.hidden || opt.style.display === 'none',
+                                                    position: {
+                                                        top: optRect.top - rect.bottom,
+                                                        left: optRect.left - rect.left
+                                                    },
+                                                    parent: opt.parentElement ? {
+                                                        tag: opt.parentElement.tagName,
+                                                        classes: Array.from(opt.parentElement.classList),
+                                                        role: opt.parentElement.getAttribute('role')
+                                                    } : null
+                                                };
+                                            });
+                                    })(),
+                                    
+                                    // 4. Any element with option-like classes
+                                    optionLikeElements: Array.from(document.querySelectorAll('[class*="option"], [class*="item"], [class*="select"], [class*="dropdown"]'))
+                                        .map(opt => ({
+                                            tag: opt.tagName,
+                                            text: opt.textContent,
+                                            classes: Array.from(opt.classList),
+                                            role: opt.getAttribute('role'),
+                                            selected: opt.getAttribute('aria-selected'),
+                                            hidden: opt.hidden || opt.style.display === 'none'
+                                        }))
+                                };
                                 
                                 return {
-                                    allVisibleElements: options.map(opt => ({
-                                        tag: opt.tagName.toLowerCase(),
-                                        id: opt.id,
-                                        textContent: opt.textContent.trim(),
-                                        classes: Array.from(opt.classList)
-                                    }))
+                                    debug: true,
+                                    mainElement: {
+                                        tag: el.tagName,
+                                        id: el.id,
+                                        classes: Array.from(el.classList),
+                                        role: el.getAttribute('role'),
+                                        expanded: el.getAttribute('aria-expanded'),
+                                        controls: el.getAttribute('aria-controls'),
+                                        owns: el.getAttribute('aria-owns')
+                                    },
+                                    allPossibleOptions
                                 };
                             }''', {
                                 'id': element['attributes']['id'],
@@ -218,6 +270,37 @@ def visualize_element_changes(page, element, analyze_form_fields_func):
                             if not post_search_state or 'error' in post_search_state:
                                 raise Exception(
                                     f"Error finding options: {post_search_state.get('error', 'Unknown error')}")
+
+                            # Add debug print statements after getting the state
+                            print("\n=== DEBUG: Dropdown State Analysis ===")
+                            print("\nMain Element:")
+                            print(json.dumps(post_search_state.get(
+                                'mainElement', {}), indent=2))
+
+                            print("\nPossible Options Found:")
+                            print("\n1. React-Select Pattern:")
+                            print(json.dumps(post_search_state.get(
+                                'allPossibleOptions', {}).get('reactSelect', [])[:5], indent=2))
+                            print(
+                                f"Total React-Select elements: {len(post_search_state.get('allPossibleOptions', {}).get('reactSelect', []))}")
+
+                            print("\n2. Aria-Expanded Elements:")
+                            print(json.dumps(post_search_state.get(
+                                'allPossibleOptions', {}).get('ariaExpanded', [])[:5], indent=2))
+                            print(
+                                f"Total Aria-Expanded elements: {len(post_search_state.get('allPossibleOptions', {}).get('ariaExpanded', []))}")
+
+                            print("\n3. Nearby Elements:")
+                            print(json.dumps(post_search_state.get('allPossibleOptions', {}).get(
+                                'nearbyElements', [])[:5], indent=2))
+                            print(
+                                f"Total Nearby elements: {len(post_search_state.get('allPossibleOptions', {}).get('nearbyElements', []))}")
+
+                            print("\n4. Option-like Elements:")
+                            print(json.dumps(post_search_state.get('allPossibleOptions', {}).get(
+                                'optionLikeElements', [])[:5], indent=2))
+                            print(
+                                f"Total Option-like elements: {len(post_search_state.get('allPossibleOptions', {}).get('optionLikeElements', []))}")
 
                             # These are all new elements since they're from the dropdown
                             filtered_elements = post_search_state['allVisibleElements']
@@ -592,54 +675,105 @@ def visualize_element_changes(page, element, analyze_form_fields_func):
                             
                             const el = result.element;
                             
-                            // Get all related elements (dropdown options)
-                            // Try multiple common dropdown patterns
-                            let options = [];
+                            // Debug info about the main element
+                            console.log('Main Element:', {
+                                tag: el.tagName,
+                                id: el.id,
+                                classes: Array.from(el.classList),
+                                role: el.getAttribute('role'),
+                                expanded: el.getAttribute('aria-expanded'),
+                                controls: el.getAttribute('aria-controls'),
+                                owns: el.getAttribute('aria-owns')
+                            });
                             
-                            // Try React-Select pattern
-                            const listboxId = `react-select-${el.id}-listbox`;
-                            const reactSelectListbox = document.getElementById(listboxId);
-                            if (reactSelectListbox) {
-                                options = Array.from(reactSelectListbox.querySelectorAll('[class*="select__option"]'));
-                            }
-                            
-                            // If no React-Select options found, try other common patterns
-                            if (!options.length) {
-                                // Try aria-expanded parent pattern
-                                const expandedParent = document.querySelector('[aria-expanded="true"]');
-                                if (expandedParent) {
-                                    options = Array.from(expandedParent.querySelectorAll('li, [role="option"]'));
-                                }
-                            }
-                            
-                            // Try visible dropdown items pattern
-                            if (!options.length) {
-                                options = Array.from(document.querySelectorAll('.dropdown-item:not([style*="display: none"]), [class*="dropdown"]:not([style*="display: none"]) li, .select-option:not([style*="display: none"])'));
-                            }
-                            
-                            // If still no options found, try any visible list items near the field
-                            if (!options.length) {
-                                const rect = el.getBoundingClientRect();
-                                options = Array.from(document.querySelectorAll('li, [role="option"]'))
-                                    .filter(opt => {
-                                        const optRect = opt.getBoundingClientRect();
-                                        return optRect.top > rect.bottom && // Below the field
-                                               Math.abs(optRect.left - rect.left) < 100 && // Roughly aligned
-                                               !opt.closest('[style*="display: none"]'); // Not hidden
-                                    });
-                            }
-                            
-                            if (!options.length) {
-                                return { error: 'Could not find dropdown options' };
-                            }
+                            // Get ALL possible elements that could be options
+                            const allPossibleOptions = {
+                                // 1. React-Select pattern
+                                reactSelect: (() => {
+                                    const listboxId = `react-select-${el.id}-listbox`;
+                                    const reactSelectListbox = document.getElementById(listboxId);
+                                    return reactSelectListbox ? 
+                                        Array.from(reactSelectListbox.querySelectorAll('*')).map(opt => ({
+                                            tag: opt.tagName,
+                                            text: opt.textContent,
+                                            classes: Array.from(opt.classList),
+                                            role: opt.getAttribute('role'),
+                                            selected: opt.getAttribute('aria-selected'),
+                                            hidden: opt.hidden || opt.style.display === 'none',
+                                            parent: opt.parentElement ? {
+                                                tag: opt.parentElement.tagName,
+                                                classes: Array.from(opt.parentElement.classList),
+                                                role: opt.parentElement.getAttribute('role')
+                                            } : null
+                                        })) : [];
+                                })(),
+                                
+                                // 2. Aria-expanded elements
+                                ariaExpanded: (() => {
+                                    const expandedElements = document.querySelectorAll('[aria-expanded]');
+                                    return Array.from(expandedElements).map(exp => ({
+                                        tag: exp.tagName,
+                                        expanded: exp.getAttribute('aria-expanded'),
+                                        children: Array.from(exp.querySelectorAll('*')).map(child => ({
+                                            tag: child.tagName,
+                                            text: child.textContent,
+                                            classes: Array.from(child.classList),
+                                            role: child.getAttribute('role'),
+                                            hidden: child.hidden || child.style.display === 'none'
+                                        }))
+                                    }));
+                                })(),
+                                
+                                // 3. All list items and options near the field
+                                nearbyElements: (() => {
+                                    const rect = el.getBoundingClientRect();
+                                    return Array.from(document.querySelectorAll('li, [role="option"], [role="listbox"] *, .select-option, .dropdown-item'))
+                                        .map(opt => {
+                                            const optRect = opt.getBoundingClientRect();
+                                            return {
+                                                tag: opt.tagName,
+                                                text: opt.textContent,
+                                                classes: Array.from(opt.classList),
+                                                role: opt.getAttribute('role'),
+                                                selected: opt.getAttribute('aria-selected'),
+                                                hidden: opt.hidden || opt.style.display === 'none',
+                                                position: {
+                                                    top: optRect.top - rect.bottom,
+                                                    left: optRect.left - rect.left
+                                                },
+                                                parent: opt.parentElement ? {
+                                                    tag: opt.parentElement.tagName,
+                                                    classes: Array.from(opt.parentElement.classList),
+                                                    role: opt.parentElement.getAttribute('role')
+                                                } : null
+                                            };
+                                        });
+                                })(),
+                                
+                                // 4. Any element with option-like classes
+                                optionLikeElements: Array.from(document.querySelectorAll('[class*="option"], [class*="item"], [class*="select"], [class*="dropdown"]'))
+                                    .map(opt => ({
+                                        tag: opt.tagName,
+                                        text: opt.textContent,
+                                        classes: Array.from(opt.classList),
+                                        role: opt.getAttribute('role'),
+                                        selected: opt.getAttribute('aria-selected'),
+                                        hidden: opt.hidden || opt.style.display === 'none'
+                                    }))
+                            };
                             
                             return {
-                                allVisibleElements: options.map(opt => ({
-                                    tag: opt.tagName.toLowerCase(),
-                                    id: opt.id,
-                                    textContent: opt.textContent.trim(),
-                                    classes: Array.from(opt.classList)
-                                }))
+                                debug: true,
+                                mainElement: {
+                                    tag: el.tagName,
+                                    id: el.id,
+                                    classes: Array.from(el.classList),
+                                    role: el.getAttribute('role'),
+                                    expanded: el.getAttribute('aria-expanded'),
+                                    controls: el.getAttribute('aria-controls'),
+                                    owns: el.getAttribute('aria-owns')
+                                },
+                                allPossibleOptions
                             };
                         }''', {
                             'id': element['attributes']['id'],
@@ -649,6 +783,37 @@ def visualize_element_changes(page, element, analyze_form_fields_func):
                         if not post_search_state or 'error' in post_search_state:
                             raise Exception(
                                 f"Error finding options: {post_search_state.get('error', 'Unknown error')}")
+
+                        # Add debug print statements after getting the state
+                        print("\n=== DEBUG: Dropdown State Analysis ===")
+                        print("\nMain Element:")
+                        print(json.dumps(post_search_state.get(
+                            'mainElement', {}), indent=2))
+
+                        print("\nPossible Options Found:")
+                        print("\n1. React-Select Pattern:")
+                        print(json.dumps(post_search_state.get(
+                            'allPossibleOptions', {}).get('reactSelect', [])[:5], indent=2))
+                        print(
+                            f"Total React-Select elements: {len(post_search_state.get('allPossibleOptions', {}).get('reactSelect', []))}")
+
+                        print("\n2. Aria-Expanded Elements:")
+                        print(json.dumps(post_search_state.get(
+                            'allPossibleOptions', {}).get('ariaExpanded', [])[:5], indent=2))
+                        print(
+                            f"Total Aria-Expanded elements: {len(post_search_state.get('allPossibleOptions', {}).get('ariaExpanded', []))}")
+
+                        print("\n3. Nearby Elements:")
+                        print(json.dumps(post_search_state.get('allPossibleOptions', {}).get(
+                            'nearbyElements', [])[:5], indent=2))
+                        print(
+                            f"Total Nearby elements: {len(post_search_state.get('allPossibleOptions', {}).get('nearbyElements', []))}")
+
+                        print("\n4. Option-like Elements:")
+                        print(json.dumps(post_search_state.get('allPossibleOptions', {}).get(
+                            'optionLikeElements', [])[:5], indent=2))
+                        print(
+                            f"Total Option-like elements: {len(post_search_state.get('allPossibleOptions', {}).get('optionLikeElements', []))}")
 
                         # These are all new elements since they're from the dropdown
                         filtered_elements = post_search_state['allVisibleElements']
