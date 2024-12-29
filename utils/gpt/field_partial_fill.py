@@ -69,10 +69,6 @@ def generate_search_term(sample_elements, field_label):
 
         answer = response.choices[0].message.content.strip().lower()
 
-        # Validate the response
-        if len(answer) > 5 or ' ' in answer:
-            print(f"Invalid search term generated: {answer}")
-            return None
         answer = answer.strip('"\'')
         return answer
 

@@ -1,6 +1,7 @@
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
+from utils.gpt.response_parser import extract_number_from_response
 
 
 # Load environment variables
@@ -31,8 +32,9 @@ def select_best_option(elements, field_label, resume_text=None):
         ])
 
         message = f"""Given these clickable elements and the candidate's resume, identify the SINGLE BEST element that should be clicked to answer the question/field.
+        You must EXACTLY match credentials shown in the resume - especially for education, work history, and certifications.
         Other elements might be UI components, labels, or irrelevant options - find the one valid choice.
-        If multiple options could work, choose the most concise one.
+        If multiple options could work, choose the most specific and accurate one based on the resume.
 
         Return ONLY the NUMBER of the best option.
         
@@ -44,7 +46,10 @@ def select_best_option(elements, field_label, resume_text=None):
         Resume:
         {resume_text}
         
-        For fields where the information isn't in the resume but options are relevant, select the option that best answers the question in the most ideal fashion possible to obtain employment. However for easily verifyable information that cannot be fabricated such as asking if you have worked at a company, select the option that is most likely to be true given the user's resume.
+        IMPORTANT: 
+        1. For education and credentials, you MUST select the option that EXACTLY matches what is stated in the resume
+        3. For fields where information isn't directly stated in the resume but options are available, select the most advantageous option
+        4. Never fabricate verifiable facts that are verifiable by a companys internal logs ie working at that company before or being a part of that company
         """
 
         # Make API call
@@ -55,20 +60,25 @@ def select_best_option(elements, field_label, resume_text=None):
         )
 
         answer = response.choices[0].message.content.strip().lower()
+        print(f"GPT elements: {elements_text}")
+        print("="*100)
+        print(f"Raw GPT output: {answer}")
 
-        # Return 'false' if that's the explicit response
-        if answer == 'false':
-            return 'false'
+        # Use the new parser to extract the number
+        number = extract_number_from_response(answer)
 
-        # Try to extract and validate the number
-        try:
-            number = int(''.join(filter(str.isdigit, answer)))
+        # If we got a number back, validate it
+        if number != 'false':
             if 0 <= number < len(elements):
+                print(f"Valid index found: {number}")
                 return number
-            return 'false'
-        except ValueError:
-            return 'false'
+            else:
+                print(
+                    f"Number {number} outside valid range [0, {len(elements)-1}]")
+                return 'false'
+
+        return 'false'
 
     except Exception as e:
-        print(f"Error in option selection: {e}")
+        print(f"Critical error in option selection: {e}")
         return 'false'

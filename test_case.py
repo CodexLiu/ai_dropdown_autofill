@@ -41,7 +41,7 @@ def initialize_browser():
     print("\nAll test pages opened. Available pages:")
     for i, page in enumerate(pages):
         print(f"{i}: {page.url}")
-
+    time.sleep(3)
     return chrome_process, playwright, browser, pages
 
 
