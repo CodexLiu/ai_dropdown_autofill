@@ -44,15 +44,48 @@ playwright install
 OPENAI_API_KEY=your_api_key_here
 ```
 
-## Usage
+## Configuration
 
-1. Configure test URLs in `initialize.py`:
+### Browser Setup (`initialize.py`)
+
+The `initialize.py` file handles the browser initialization and configuration. You'll need to modify this file to:
+
+1. Set your test URLs:
 
 ```python
 test_urls = [
-    "your_job_application_url_here",
+    "https://job-boards.greenhouse.io/your-job-url",
+    # Add more URLs as needed
 ]
 ```
+
+2. Configure Chrome settings (if needed):
+
+```python
+chrome_process = subprocess.Popen([
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '--remote-debugging-port=9222',  # Default debugging port
+    '--user-data-dir=/Users/YOUR_USERNAME/Library/Application Support/Google/Chrome',
+    '--profile-directory=Profile 4'  # Chrome profile to use
+])
+```
+
+The `initialize_browser()` function:
+
+- Launches Chrome with remote debugging enabled
+- Connects Playwright to the running Chrome instance
+- Opens each URL from your test_urls list in a new tab
+- Returns the necessary browser control objects
+
+This approach allows the script to:
+
+- Use your existing Chrome profile (cookies, saved passwords, etc.)
+- Handle multiple job applications simultaneously
+- Maintain browser state between runs
+
+## Usage
+
+1. Configure your URLs in `initialize.py` as described above.
 
 2. Run the main script:
 
