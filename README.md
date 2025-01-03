@@ -7,10 +7,10 @@ The main purpose is to provide a solution for the "last mile" of form automation
 ## Features
 
 - Automated detection and interaction with dropdown fields
-- Smart field content analysis using GPT-4
+- Smart field content analysis using GPT-4o
 - Support for various dropdown implementations (React-Select, standard HTML selects, custom dropdowns)
 - Retry mechanism with intelligent search term generation
-- Visual state validation using GPT-4 Vision
+- Visual state validation using GPT-4o Vision
 - Seamless integration with existing Chrome extensions and automation tools
 
 ## Prerequisites
