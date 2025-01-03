@@ -1,9 +1,8 @@
 def compare_states(before, after):
-    """Compare and print differences between two element states"""
     changes = []
     for key in before:
         if key in ['computedStyle', 'ariaAttributes', 'dimensions']:
-            continue  # These are handled separately
+            continue
         if before[key] != after[key]:
             changes.append(f"  {key}: {before[key]} -> {after[key]}")
 
@@ -14,7 +13,6 @@ def compare_states(before, after):
 
 
 def compare_styles(before, after):
-    """Compare and print style changes"""
     changes = []
     for key in before:
         if before[key] != after[key]:
@@ -26,7 +24,6 @@ def compare_styles(before, after):
 
 
 def compare_aria(before, after):
-    """Compare and print ARIA attribute changes"""
     changes = []
     for key in before:
         if before[key] != after[key]:

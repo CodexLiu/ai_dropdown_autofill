@@ -9,11 +9,10 @@ import tempfile
 
 
 def compare_states(before, after):
-    """Compare and print differences between two element states"""
     changes = []
     for key in before:
         if key in ['computedStyle', 'ariaAttributes', 'dimensions']:
-            continue  # These are handled separately
+            continue
         if before[key] != after[key]:
             changes.append(f"  {key}: {before[key]} -> {after[key]}")
 
@@ -24,7 +23,6 @@ def compare_states(before, after):
 
 
 def compare_styles(before, after):
-    """Compare and print style changes"""
     changes = []
     for key in before:
         if before[key] != after[key]:
@@ -36,7 +34,6 @@ def compare_styles(before, after):
 
 
 def compare_aria(before, after):
-    """Compare and print ARIA attribute changes"""
     changes = []
     for key in before:
         if before[key] != after[key]:
@@ -48,16 +45,13 @@ def compare_aria(before, after):
 
 
 def process_all_fields(page, clickable_elements):
-    """Process all fields in sequence automatically"""
     print("\nProcessing all fields...")
 
-    while True:  # Keep going until no more empty fields
-        # Find first empty field
+    while True:
         empty_field_index = None
         for index, element in enumerate(clickable_elements):
             print(f"\nChecking field {index}: {element['label']}")
 
-            # Skip if field already has content
             if verify_field_content(page, element):
                 print("Field already has content, skipping...")
                 continue
@@ -72,32 +66,25 @@ def process_all_fields(page, clickable_elements):
         print(
             f"\nProcessing empty field {empty_field_index}: {clickable_elements[empty_field_index]['label']}")
 
-        # Process the field using existing pipeline
         new_elements = visualize_element_changes(
             page, clickable_elements[empty_field_index], analyze_form_fields)
 
-        # Update clickable elements and get fresh list
         if new_elements:
             clickable_elements = new_elements
         else:
-            # If visualization failed, refresh the list anyway
             clickable_elements = analyze_form_fields(page)
 
-        time.sleep(0.5)  # Small delay between fields
+        time.sleep(0.5)
 
     return clickable_elements
 
-# ... existing imports ...
-
 
 def process_single_element(page, element_index, clickable_elements):
-    """Process a single form element and return updated clickable elements"""
     try:
         if 0 <= element_index < len(clickable_elements):
             element = clickable_elements[element_index]
             print(f"\nProcessing element {element_index}: {element['label']}")
 
-            # Update clickable_elements with new analysis after visualization
             new_elements = visualize_element_changes(
                 page, element, analyze_form_fields)
 
@@ -341,10 +328,7 @@ def verify_field_content(page, element):
 
 def main():
     try:
-        # Initialize browser and get pages
         chrome_process, playwright, browser, pages = initialize_browser()
-
-        # Analyze forms on first page
         clickable_elements = analyze_form_fields(pages[0])
 
         while True:
@@ -375,7 +359,6 @@ def main():
     except Exception as e:
         print(f"Error in main: {str(e)}")
     finally:
-        # Clean up
         browser.close()
         playwright.stop()
         chrome_process.terminate()

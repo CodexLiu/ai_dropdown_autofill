@@ -1,6 +1,8 @@
 # Automated Dropdown Field Filler
 
-A Python-based tool that demonstrates automated dropdown field filling using Playwright and GPT-4, primarily tested with Greenhouse job applications. This project showcases how to intelligently interact with dropdown fields in web forms.
+A Python-based tool that demonstrates automated dropdown field filling using Playwright and GPT-4. This project is designed to complement existing automation tools and browser extensions by handling complex, custom dropdown fields that traditional automation methods struggle with. It's particularly effective with Greenhouse job applications but can be adapted for various platforms.
+
+The main purpose is to provide a solution for the "last mile" of form automation - those tricky, custom-implemented dropdowns that often break standard automation tools. By using your existing Chrome profile, it can work seamlessly alongside your current automation pipeline and extensions.
 
 ## Features
 
@@ -9,6 +11,7 @@ A Python-based tool that demonstrates automated dropdown field filling using Pla
 - Support for various dropdown implementations (React-Select, standard HTML selects, custom dropdowns)
 - Retry mechanism with intelligent search term generation
 - Visual state validation using GPT-4 Vision
+- Seamless integration with existing Chrome extensions and automation tools
 
 ## Prerequisites
 
@@ -79,9 +82,13 @@ The `initialize_browser()` function:
 
 This approach allows the script to:
 
-- Use your existing Chrome profile (cookies, saved passwords, etc.)
+- Work alongside existing Chrome extensions and automation tools
+- Use your Chrome profile's state (extensions, cookies, saved passwords)
 - Handle multiple job applications simultaneously
+- Complement your existing automation pipeline by handling complex dropdowns
 - Maintain browser state between runs
+
+For example, if you have extensions that automate most of a form but struggle with certain custom dropdowns, this tool can handle those specific fields while letting your existing automation handle the rest.
 
 ## Usage
 
@@ -124,6 +131,7 @@ To make this tool universally cover job applications:
 3. Create platform-specific handlers
 4. Enhance the field analysis logic
 5. Add cross-platform browser support
+6. Implement APIs for better integration with other automation tools
 
 ## Contributing
 
